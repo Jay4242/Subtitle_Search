@@ -1,0 +1,89 @@
+<html>
+  <head>
+    <title>Subtitle Search</title>
+  </head>
+  <body>
+    <h1>Subtitle Search for <a href="https://www.youtube.com/@ThatChapter">ThatChapter</a></h1>
+    <h3>Current as of 2022-12-13</h3>
+    <form>
+      <label>Search: <input type="text" id="search-term"></label>
+      <button type="submit">Search</button>
+    </form>
+    <h2>Results:</h2>
+    <ul id="results"></ul>
+
+    <script>
+      // get the search form and results list
+      const form = document.querySelector('form');
+      const resultsList = document.querySelector('#results');
+
+      // when the form is submitted, perform the search
+      form.addEventListener('submit', event => {
+        // prevent the form from actually submitting
+        event.preventDefault();
+
+        // get the search term
+        const searchTerm = document.querySelector('#search-term').value;
+
+        // search for the files and display the results
+        searchForFiles(searchTerm)
+          .then(results => {
+            // clear the previous search results
+            resultsList.innerHTML = '';
+
+            // add the new results to the list
+            results.forEach(result => {
+              const li = document.createElement('li');
+              videoId = result.file.replace(/^[^_]*_/, "");
+              videoId = videoId.replace(/_[^_]*$/, "");
+              var youtubeUrl = "https://www.youtube.com/watch?v=" + videoId;
+              li.innerHTML = `<a href="./subs/${result.file}" target="_blank">${result.file}</a>: ${result.match}  - <a href="${youtubeUrl}" target="_blank">${videoId}</a><br>`;
+              resultsList.appendChild(li);
+            });
+          });
+      });
+
+// perform the search for files and return the results
+async function searchForFiles(searchTerm) {
+  // convert the search term to lower case
+  searchTerm = searchTerm.toLowerCase();
+
+  // get the list of files in the 'subs' directory
+  const response = await fetch('subs/');
+  const text = await response.text();
+
+  // parse the HTML to extract the list of files
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'text/html');
+  const links = doc.querySelectorAll('a[href]');
+
+  // search each file for the search term and return the results
+  const results = [];
+  for (const link of links) {
+    const file = link.getAttribute('href');
+    if (file.endsWith('.vtt') && !file.includes('?filename=')) {
+      const fileResponse = await fetch(file);
+      fileText = await fileResponse.text();
+
+      // convert the file text to lower case
+      fileText = fileText.toLowerCase();
+
+      // find all lines that contain the search term
+      const lines = fileText.split('\n');
+      for (const line of lines) {
+        if (line.includes(searchTerm)) {
+          // get the filename without the URL encoding
+          const fileParts = file.split('/');
+          const fileName = decodeURIComponent(fileParts[fileParts.length - 1]);
+          results.push({ file: fileName, match: line });
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
+    </script>
+  </body>
+</html>
